@@ -1,22 +1,28 @@
+// ajout des bibliothèques necéssaires
 #include <Arduino.h>
 #include "esp_mac.h"
-#include <ArduinoJson.h>
+#include <ArduinoJson.h> //bibliothèque permettant la gestion des données JSON
 
-HardwareSerial mySerial2(2);
+HardwareSerial mySerial2(2); // initialisation de la communication avec l'esp
 
+//initialisation des reglages de communiquation
 #define DEBUG true
 #define IO_RXD2 17
 #define IO_TXD2 18
 
+//utilisateur de connection au serveur MQTT
 char user[] = "user2";
 char mdp[] = "1234."; 
 
 #define IO_GSM_PWRKEY 4
 #define IO_GSM_RST    5
 
+//variables pour l'envoie regulier de donner
 unsigned long lastSendTime = 0;  // Variable pour stocker le temps du dernier envoi
-const unsigned long sendInterval = 60000;  // Intervalle d'envoie
+const unsigned long sendInterval = 120000;  // Intervalle d'envoie
 
+
+//fonction de recuperation de l'adresse MAC
 String getDefaultMacAddress() {
   String mac = "";
   unsigned char mac_base[6] = {0};
@@ -28,6 +34,8 @@ String getDefaultMacAddress() {
   return mac;
 }
 
+
+//fonction permettant d'envoyer les commandes AT a l'esp
 String sendData(String command, const int timeout, boolean debug) {
   String response = "";
   mySerial2.println(command);
@@ -45,6 +53,8 @@ String sendData(String command, const int timeout, boolean debug) {
   return response;
 }
 
+
+//fonction pour la connection au serveur MQTT
 void conn(){
   
   char atCommandConnect[120];
@@ -53,60 +63,68 @@ void conn(){
   
 }
 
+
+//fonction pour d'abonnement a un topic du serveur MQTT
 void Sub(String topic) {
   const char* topicChar = topic.c_str();
   char fullTopic[50];
+  //creation du topic sous format utilisateur/topic
   strcpy(fullTopic, user);
   strcat(fullTopic, "/");
   strcat(fullTopic, topicChar);
-
+  //creation de commande AT correspondante
   int len = strlen(fullTopic);
   char atCommand[50];
   sprintf(atCommand, "AT+CMQTTSUB=0,%d,0", len);
-
+  //envoie de la commande AT
   sendData(atCommand, 1000, DEBUG);
   sendData(fullTopic, 1000, DEBUG);
 }
 
+//fonction de publication d'un message sur le serveur MQTT
 void Pub(String topic, String payload) {
+  Serial.println("debut du pub");
   const char* topicChar = topic.c_str();
   char fullTopic[50];
+  //creation du topic sur le quel va etre envoyer la donner
   strcpy(fullTopic, user);
   strcat(fullTopic, "/");
   strcat(fullTopic, topicChar);
-
+  //creation de la commande AT pour l'initialisation du topic
   int len = strlen(fullTopic);
   char atCommandTopic[30];
   sprintf(atCommandTopic, "AT+CMQTTTOPIC=0,%d", len);
-
-  sendData(atCommandTopic, 1000, DEBUG);
-  sendData(fullTopic, 1000, DEBUG);
-
+  //envoie de la commande AT
+  sendData(atCommandTopic, 1000, false);
+  sendData(fullTopic, 1000, false);
+  //creation de la commande AT pour l'envoie du message
   const char* payloadChar = payload.c_str();
   int lenpayload = strlen(payloadChar);
-
   char atCommandPayload[30];
   sprintf(atCommandPayload, "AT+CMQTTPAYLOAD=0,%d", lenpayload);
-
-  sendData(atCommandPayload, 1000, DEBUG);
-  sendData(payload, 1000, DEBUG);
-
-  sendData("AT+CMQTTPUB=0,0,60", 1000, DEBUG);
+  //envoie de la commande AT
+  sendData(atCommandPayload, 1000, false);
+  //envoie du message
+  sendData(payload, 1000, false);
+  //envoie de la commande AT permettant la publication
+  sendData("AT+CMQTTPUB=0,0,60", 1000, false);
+  Serial.println("fin du pub");
 }
 
+//creationde donner aleatoire
+// TEST // TEST // TEST //
 String RandomData() {
   StaticJsonDocument<200> doc;
   String Data;
   float tension = random(220, 230) + random(0, 100) / 100.0;
-  int niveauEau = random(0, 100);
   float pression = random(1, 10) + random(0, 100) / 100.0;
   String id = getDefaultMacAddress();
 
-  doc["tension"] = tension;
-  doc["nivEau"] = niveauEau;
-  doc["pression"] = pression;
   doc["id"] = id;
-  doc["etat"] = "a sec";
+  doc["tension"] = tension;
+  doc["pression"] = pression;
+  doc["alerte"] = 1;
+  doc["etat"] = "E";
 
   serializeJson(doc, Data);
   return Data;
@@ -131,20 +149,27 @@ void handleMessage(String message) {
   }
 
   // Si l'analyse réussit, nous pouvons accéder aux données JSON
-  if (doc.containsKey("actions")) {
-    String actions = doc["actions"];  // Récupère la clé "actions"
+  if (doc.containsKey("action")) {
+    String actions = doc["action"];  // Récupère la clé "actions"
     
-    if (actions == "gonfler") {
+    if (actions == "G") {
       // Si l'action est "gonfler"
-      Serial.println("Actions: gonfler reçu ! Exécution de la fonction correspondante.");
-      // Appelle ta fonction ici
-    } 
+      Serial.println("Actions: gonfler");
+    }
+    else if (actions == "D") {
+      // Si l'action est "degonfler"
+      Serial.println("Actions: degonfler");
+    }
+    else if (actions == "A") {
+      // Si l'action est "arrete d'urgence"
+      Serial.println("Actions: Arret d'urgence");
+    }
     else {
       Serial.println("Actions inconnue reçue.");
     }
   } 
   else {
-    Serial.println("Clé 'actions' manquante dans le message JSON.");
+    Serial.println("Clé 'action' manquante dans le message JSON.");
   }
 }
 
@@ -215,7 +240,7 @@ void setup() {
 
   conn();
 
-  Sub("actions");
+  Sub("action");
 }
 
 void loop() {
@@ -230,7 +255,7 @@ void loop() {
   // Vérifier s'il y a des messages entrants
   checkIncomingMessages();
 
-  // Envoi toutes les 10 secondes
+  // Envoi toutes les minutes
   if (currentMillis - lastSendTime >= sendInterval) {
     Pub("data", RandomData());
     lastSendTime = currentMillis;
