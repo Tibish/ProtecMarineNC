@@ -5,10 +5,10 @@ ProtectMarineNC
 étudiants :
 - LAVAL Thibault --> Comm 3G LTE ESP32
 - STADMILLER Pierreric --> Serveur MQTT + API
-- Theza --> Actionneur et pompe
-- Viena --> BDD + BackEND
-- Titouan --> capteurs
-- Mathias --> FrontEND
+- GOMEN Theza --> Actionneur et pompe
+- PELO Viena --> BDD + BackEND
+- BELLIER PONTAIS Titouan --> capteurs
+- BOURGEOIS Mathias --> FrontEND
 
 
 Trouver la DEX grace au lien suivant:
