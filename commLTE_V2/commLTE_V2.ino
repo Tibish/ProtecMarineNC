@@ -64,7 +64,7 @@ void conn(){
 }
 
 
-//fonction pour d'abonnement a un topic du serveur MQTT
+//fonction d'abonnement a un topic du serveur MQTT
 void Sub(String topic) {
   const char* topicChar = topic.c_str();
   char fullTopic[50];
@@ -111,19 +111,20 @@ void Pub(String topic, String payload) {
   Serial.println("fin du pub");
 }
 
-//creationde donner aleatoire
+//creation de donner aleatoire
 // TEST // TEST // TEST //
 String RandomData() {
   StaticJsonDocument<200> doc;
   String Data;
   float tension = random(220, 230) + random(0, 100) / 100.0;
   float pression = random(1, 10) + random(0, 100) / 100.0;
+  int alerte = random(0, 4);
   String id = getDefaultMacAddress();
 
   doc["id"] = id;
   doc["tension"] = tension;
   doc["pression"] = pression;
-  doc["alerte"] = 1;
+  doc["alerte"] = alerte;
   doc["etat"] = "E";
 
   serializeJson(doc, Data);
@@ -194,7 +195,7 @@ void checkIncomingMessages() {
         receivedMessage = "";  // Réinitialiser pour commencer à lire le JSON
       }
       //Détecte une erreur de connexion
-      else if (receivedMessage.startsWith("+CMQTTCONNLOST: 0,3")) {
+      else if (receivedMessage.startsWith("+CMQTTCONNLOST")) {
         //redemarrage de la connection MQTT
         sendData("AT+CMQTTDISC=0,120", 1000, DEBUG);
         conn();
@@ -255,7 +256,7 @@ void loop() {
   // Vérifier s'il y a des messages entrants
   checkIncomingMessages();
 
-  // Envoi toutes les minutes
+  // Envoi toutes les X temps
   if (currentMillis - lastSendTime >= sendInterval) {
     Pub("data", RandomData());
     lastSendTime = currentMillis;
