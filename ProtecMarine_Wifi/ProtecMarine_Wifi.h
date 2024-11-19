@@ -9,6 +9,7 @@ class ProtecMarine_Wifi {
 public:
     ProtecMarine_Wifi(const char* ssid, const char* password, int pressionPin, int potPin);
     void setupWifi();
+    void disconnectWifi();
     void handleRequests();
     void handleRoot();
     void handleGetData();
