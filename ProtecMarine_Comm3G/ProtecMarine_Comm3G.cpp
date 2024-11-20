@@ -1,7 +1,7 @@
 #include "ProtecMarine_Comm3G.h"
 
 ProtecMarine_Comm3G::ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword)
-    : _serial(serial), _mqttUser(mqttUser), _mqttPassword(mqttPassword), _receivedMessage(""), _isJsonPayload(false) {}
+    : _serial(serial), _mqttUser(mqttUser), _mqttPassword(mqttPassword), _receivedMessage(""), _isJsonPayload(false), sendInterval(60000), id_ordre() {}
 
 String ProtecMarine_Comm3G::getDefaultMacAddress() {
     String mac = "";
@@ -37,6 +37,15 @@ void ProtecMarine_Comm3G::connectMQTT() {
     sendData(atCommandConnect, 1000, true);
 }
 
+void ProtecMarine_Comm3G::initMQTT() {
+    sendData("AT+CMQTTSTART", 1000, true);
+    sendData("AT+CMQTTACCQ=0,\"PrtMarineNC\",1", 1000, true);
+    sendData("AT+CMQTTWILLTOPIC=0,4", 1000, true);
+    sendData("tata", 1000, true);
+    sendData("AT+CMQTTWILLMSG=0,4,0", 1000, true);
+    sendData("tata", 1000, true);
+}
+
 void ProtecMarine_Comm3G::subscribe(String topic) {
     char fullTopic[50];
     strcpy(fullTopic, _mqttUser);
@@ -66,7 +75,7 @@ void ProtecMarine_Comm3G::publish(String topic, String payload) {
     sprintf(atCommandPayload, "AT+CMQTTPAYLOAD=0,%d", lenpayload);
     sendData(atCommandPayload, 1000, false);
     sendData(payload, 1000, false);
-    sendData("AT+CMQTTDISC=0,0,60", 1000, false);
+    sendData("AT+CMQTTPUB=0,0,60", 1000, false);
 }
 
 String ProtecMarine_Comm3G::getData(int pressionPin, int potPin) {
@@ -81,7 +90,8 @@ String ProtecMarine_Comm3G::getData(int pressionPin, int potPin) {
     int potValue = analogRead(potPin);
     float tension = (potValue * 12.0) / 4095;
 
-    doc["id"] = id;
+    doc["mac_esp32"] = id;
+    doc["id_ordre"] = id_ordre;
     doc["tension"] = tension;
     doc["pression"] = pression;
     doc["etat"] = "E";
@@ -103,12 +113,18 @@ void ProtecMarine_Comm3G::handleMessage(String message) {
 
     if (doc.containsKey("action")) {
         String actions = doc["action"];
+        id_ordre = doc["id_ordre"];
         if (actions == "G") {
-            Serial.println("Action: Gonfler");
+            Serial.print("Action: Gonfler     ");
+            Serial.print("avec pour id :");
+            Serial.println(id_ordre);
+            setSendInterval(60000);
         } else if (actions == "D") {
             Serial.println("Action: Dégonfler");
+            setSendInterval(60000);
         } else if (actions == "A") {
             Serial.println("Action: Arrêt d'urgence");
+            setSendInterval(300000);
         } else {
             Serial.println("Action inconnue reçue.");
         }
@@ -138,4 +154,18 @@ void ProtecMarine_Comm3G::checkIncomingMessages() {
             }
         }
     }
+}
+
+void ProtecMarine_Comm3G::disconnectMQTT(){
+    sendData("AT+CMQTTDISC=0,120", 1000, true);
+    sendData("AT+CMQTTREL=0", 1000, true);
+    sendData("AT+CMQTTSTOP", 1000, true);
+}
+
+void ProtecMarine_Comm3G::setSendInterval(unsigned long interval) {
+    sendInterval = interval;
+}
+
+unsigned long ProtecMarine_Comm3G::getSendInterval() const {
+    return sendInterval;
 }
