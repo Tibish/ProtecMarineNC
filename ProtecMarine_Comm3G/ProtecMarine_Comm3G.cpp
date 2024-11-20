@@ -1,7 +1,8 @@
 #include "ProtecMarine_Comm3G.h"
 
 ProtecMarine_Comm3G::ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword, int pressionPin, int potPin)
-    : _serial(serial), _mqttUser(mqttUser), _mqttPassword(mqttPassword), _receivedMessage(""), _isJsonPayload(false), sendInterval(60000), id_ordre(), _pressionPin(pressionPin), _potPin(potPin), lastSendTime(0) {}
+    : _serial(serial), _mqttUser(mqttUser), _mqttPassword(mqttPassword), _receivedMessage(""), _isJsonPayload(false), sendInterval(60000), id_ordre(),
+     _pressionPin(pressionPin), _potPin(potPin), lastSendTime(0) {}
 
 String ProtecMarine_Comm3G::getDefaultMacAddress() {
     String mac = "";
