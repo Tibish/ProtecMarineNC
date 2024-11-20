@@ -1,7 +1,7 @@
 #include "ProtecMarine_Comm3G.h"
 
-ProtecMarine_Comm3G::ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword)
-    : _serial(serial), _mqttUser(mqttUser), _mqttPassword(mqttPassword), _receivedMessage(""), _isJsonPayload(false), sendInterval(60000), id_ordre() {}
+ProtecMarine_Comm3G::ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword, int pressionPin, int potPin)
+    : _serial(serial), _mqttUser(mqttUser), _mqttPassword(mqttPassword), _receivedMessage(""), _isJsonPayload(false), sendInterval(60000), id_ordre(), _pressionPin(pressionPin), _potPin(potPin), lastSendTime(0) {}
 
 String ProtecMarine_Comm3G::getDefaultMacAddress() {
     String mac = "";
@@ -78,16 +78,16 @@ void ProtecMarine_Comm3G::publish(String topic, String payload) {
     sendData("AT+CMQTTPUB=0,0,60", 1000, false);
 }
 
-String ProtecMarine_Comm3G::getData(int pressionPin, int potPin) {
+String ProtecMarine_Comm3G::getData() {
     StaticJsonDocument<200> doc;
     String Data;
     String id = getDefaultMacAddress();
 
-    int mesureBrute = analogRead(pressionPin);
+    int mesureBrute = analogRead(_pressionPin);
     float tensionP = mesureBrute * (3.3 / 4095.0);
     float pression = (tensionP * 2 + 4.42) * (1000.0 / (4.7 - 0.2));
 
-    int potValue = analogRead(potPin);
+    int potValue = analogRead(_potPin);
     float tension = (potValue * 12.0) / 4095;
 
     doc["mac_esp32"] = id;
@@ -168,4 +168,12 @@ void ProtecMarine_Comm3G::setSendInterval(unsigned long interval) {
 
 unsigned long ProtecMarine_Comm3G::getSendInterval() const {
     return sendInterval;
+}
+
+void ProtecMarine_Comm3G::verifTime() {
+    if (millis() - lastSendTime >= getSendInterval()) {
+      Serial.println("debut du pub");
+      publish("data", getData());
+      lastSendTime = millis();
+    }
 }
