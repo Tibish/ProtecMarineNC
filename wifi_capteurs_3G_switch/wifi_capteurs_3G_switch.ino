@@ -8,14 +8,13 @@ ProtecMarine_Wifi wifi("ProtecMarineNC", "12345678", 34, 35);
 #define DEBUG true
 
 HardwareSerial mySerial2(2);
-ProtecMarine_Comm3G comm3G(mySerial2, "user3", "User123456789.");
+ProtecMarine_Comm3G comm3G(mySerial2, "user3", "User123456789.", 34, 35);
 
 int currentMode = 1;
 const int swPin = 5;
 int sw = 0;
 
 static unsigned long lastSendTime = 0;
-const unsigned long sendInterval = 120000;
 
 void setup() {
     Serial.begin(115200);
@@ -26,6 +25,7 @@ void loop() {
   sw = analogRead(swPin);
   if(sw > 2050){
     if(currentMode == 0){
+      wifi.disconnectWifi();
       Serial.println("init 3G");
       comm3G.initMQTT();
       comm3G.connectMQTT();
@@ -33,14 +33,13 @@ void loop() {
       delay(200);
       currentMode = 1;
     }
+    else{}
+    comm3G.verifTime();
     comm3G.checkIncomingMessages();
-    if (millis() - lastSendTime >= sendInterval) {
-      comm3G.publish("data", comm3G.getData(34, 35));
-      lastSendTime = millis();
-    }
   }
   else { 
     if(currentMode == 1){
+      comm3G.disconnectMQTT();
       Serial.println("init wifi"); 
       wifi.setupWifi();
       delay(200);
