@@ -11,12 +11,16 @@ public:
 
     String getDefaultMacAddress();
     String sendData(String command, const int timeout, boolean debug = false);
+    void initMQTT();
     void connectMQTT();
     void subscribe(String topic);
     void publish(String topic, String payload);
     String getData(int pressionPin, int potPin);
     void handleMessage(String message);
     void checkIncomingMessages();
+    void disconnectMQTT();
+    void setSendInterval(unsigned long interval);
+    unsigned long getSendInterval() const;
 
 private:
     HardwareSerial& _serial; // Référence au port série
@@ -24,6 +28,8 @@ private:
     const char* _mqttPassword;
     String _receivedMessage;
     bool _isJsonPayload;
+    unsigned long sendInterval;
+    int id_ordre;
 };
 
 #endif
