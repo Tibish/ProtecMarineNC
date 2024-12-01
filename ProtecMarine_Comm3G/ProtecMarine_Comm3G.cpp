@@ -9,7 +9,7 @@ String ProtecMarine_Comm3G::getDefaultMacAddress() {
     unsigned char mac_base[6] = {0};
     if (esp_efuse_mac_get_default(mac_base) == ESP_OK) {
         char buffer[18];
-        sprintf(buffer, "%02X:%02X:%02X:%02X:%02X:%02X", mac_base[0], mac_base[1], mac_base[2], mac_base[3], mac_base[4], mac_base[5]);
+        sprintf(buffer, "%02X-%02X-%02X-%02X-%02X-%02X", mac_base[0], mac_base[1], mac_base[2], mac_base[3], mac_base[4], mac_base[5]);
         mac = buffer;
     }
     return mac;
