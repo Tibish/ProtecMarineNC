@@ -3,7 +3,25 @@
 ProtecMarine_Wifi::ProtecMarine_Wifi(const char* ssid, const char* password, int pressionPin, int potPin)
     : _ssid(ssid), _password(password), _pressionPin(pressionPin), _potPin(potPin), _server(80), _etat("arrêté"), _potValue(0), _tension(0.0) {}
 
+
+String  ProtecMarine_Wifi::getDefaultMacAddress() {
+    String mac = "";
+    unsigned char mac_base[6] = {0};
+    if (esp_efuse_mac_get_default(mac_base) == ESP_OK) {
+        char buffer[18];
+        sprintf(buffer, "%02X-%02X-%02X-%02X-%02X-%02X", mac_base[0], mac_base[1], mac_base[2], mac_base[3], mac_base[4], mac_base[5]);
+        mac = buffer;
+    }
+    return mac;
+}
+
 void ProtecMarine_Wifi::setupWifi() {
+    if (!LittleFS.begin()) {
+        Serial.println("Erreur de montage LittleFS !");
+        return;
+    }
+    Serial.println("LittleFS monté avec succès.");
+
     WiFi.softAP(_ssid, _password);
 
     Serial.println("Point d'accès créé avec succès");
@@ -15,6 +33,7 @@ void ProtecMarine_Wifi::setupWifi() {
     // Configurer les routes
     _server.on("/", [this]() { handleRoot(); });
     _server.on("/getdata", [this]() { handleGetData(); });
+    _server.on("/image", HTTP_GET, [this]() { handleImage(); });
     _server.on("/gonflage", [this]() { handleGonflage(); });
     _server.on("/degonflage", [this]() { handleDegonflage(); });
     _server.on("/arret", [this]() { handleArret(); });
@@ -31,8 +50,18 @@ void ProtecMarine_Wifi::handleRequests() {
     _server.handleClient();
 }
 
+void ProtecMarine_Wifi::handleImage() {
+    File file = LittleFS.open("/image.jpg", "r");
+    if (!file) {
+        _server.send(404, "text/plain", "Image non trouvée");
+        return;
+    }
+    _server.streamFile(file, "image/jpeg");
+    file.close();
+}
+
 void ProtecMarine_Wifi::handleRoot() {
-  String htmlPage = R"rawliteral(
+    String htmlPage = R"rawliteral(
     <!DOCTYPE html>
     <html lang="fr">
     <head>
@@ -41,20 +70,16 @@ void ProtecMarine_Wifi::handleRoot() {
       <title>ProtecMarineNC</title>
       <style>
         h1 { text-align: center; font-family: Arial, Helvetica, sans-serif; }
-        p { text-align: center; font-size: x-large; font-family: Arial, Helvetica, sans-serif; }
+        img { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+        #dataDisplay { text-align: center; }
         button { font-size: 18px; padding: 10px 20px; display: block; margin: 10px auto; }
         #etat { text-align: center; background-color: #007bff; color: white; padding: 10px 20px; margin: 10px auto; }
         #arretButton { background-color: red; color: white; }
         #tension, #pression { background-color: #f0f0f0; padding: 10px; margin-top: 20px; text-align: center; border-radius: 5px; }
-        svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
       </style>
     </head>
     <body>
-      <svg version="1.0" xmlns="http://www.w3.org/2000/svg" width="260.000000pt" height="90.000000pt" viewBox="0 0 260.000000 90.000000" preserveAspectRatio="xMidYMid meet">
-        <g transform="translate(0.000000,90.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none">
-          <!-- SVG paths ici -->
-        </g>
-      </svg>
+      <img src="/image" alt="Image du système">
       <h1>Protection de coque</h1>
       <div id="dataDisplay">
         <p>Tension : </p>
@@ -93,14 +118,15 @@ void ProtecMarine_Wifi::handleRoot() {
           xhttp.send();
         }
 
-        setInterval(getData, 1000);  // Mise à jour des données toutes les secondes
+        setInterval(getData, 1000);
       </script>
     </body>
     </html>
-  )rawliteral";
+    )rawliteral";
 
-  _server.send(200, "text/html", htmlPage);
-} 
+    _server.send(200, "text/html", htmlPage);
+}
+
 
 void ProtecMarine_Wifi::handleGetData() {
     String data = GetData();
@@ -128,7 +154,7 @@ void ProtecMarine_Wifi::handleArret() {
 String ProtecMarine_Wifi::GetData() {
     StaticJsonDocument<200> doc;
     String Data;
-    String id = WiFi.softAPmacAddress();
+    String id = getDefaultMacAddress();
     int alerte = random(0, 4);
 
     // Mesure de pression
