@@ -4,14 +4,21 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <ArduinoJson.h>
+#include "esp_mac.h"
+#include <LittleFS.h>
 
 class ProtecMarine_Wifi {
 public:
     ProtecMarine_Wifi(const char* ssid, const char* password, int pressionPin, int potPin);
+
+    String getDefaultMacAddress();
     void setupWifi();
     void disconnectWifi();
+
     void handleRequests();
     void handleRoot();
+    void handleImage();
+
     void handleGetData();
     void handleGonflage();
     void handleDegonflage();
