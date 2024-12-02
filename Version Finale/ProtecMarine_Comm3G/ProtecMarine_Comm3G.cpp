@@ -1,7 +1,8 @@
 #include "ProtecMarine_Comm3G.h"
 
-ProtecMarine_Comm3G::ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword)
-    : _serial(serial), _mqttUser(mqttUser), _mqttPassword(mqttPassword), _receivedMessage(""), _isJsonPayload(false), sendInterval(300000), lastSendTime(01), _etat("E") {}
+ProtecMarine_Comm3G::ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword, int pressionPin, int potPin)
+    : _serial(serial), _mqttUser(mqttUser), _mqttPassword(mqttPassword), _receivedMessage(""), _isJsonPayload(false), sendInterval(60000), id_ordre(),
+     _pressionPin(pressionPin), _potPin(potPin), lastSendTime(0), _etat("E") {}
 
 String ProtecMarine_Comm3G::getDefaultMacAddress() {
     String mac = "";
@@ -29,6 +30,7 @@ String ProtecMarine_Comm3G::sendData(String command, const int timeout, boolean 
         delay(500);
     }
     return response;
+    //checkError(command,response);
 }
 
 void ProtecMarine_Comm3G::initMQTT() {
@@ -78,22 +80,23 @@ void ProtecMarine_Comm3G::publish(String topic, String payload) {
     sendData("AT+CMQTTPUB=0,0,60", 1000, true);
 }
 
-String ProtecMarine_Comm3G::getData(int pressionPin, int potPin) {
+String ProtecMarine_Comm3G::getData() {
     StaticJsonDocument<200> doc;
     String Data;
     String id = getDefaultMacAddress();
 
-    int mesureBrute = analogRead(pressionPin);
+    int mesureBrute = analogRead(_pressionPin);
     float tensionP = mesureBrute * (3.3 / 4095.0);
     float pression = (tensionP * 2 + 4.42) * (1000.0 / (4.7 - 0.2));
 
-    int potValue = analogRead(potPin);
+    int potValue = analogRead(_potPin);
     float tension = (potValue * 12.0) / 4095;
 
-    doc["id"] = id;
+    doc["mac_esp32"] = id;
+    doc["id_ordre"] = id_ordre;
     doc["tension"] = tension;
     doc["pression"] = pression;
-    doc["etat"] = _etat;
+    doc["etat"] = "E";
 
     serializeJson(doc, Data);
     return Data;
@@ -114,8 +117,8 @@ void ProtecMarine_Comm3G::handleMessage(String message) {
         String actions = doc["action"];
         if (actions == "G") {
             Serial.println("Action: Gonfler");
-            setSendInterval(60000)
-            Gonflage()
+            setSendInterval(60000);
+            Gonflage();
         } else if (actions == "D") {
             Serial.println("Action: Dégonfler");
             setSendInterval(60000);
@@ -155,6 +158,19 @@ void ProtecMarine_Comm3G::checkIncomingMessages() {
     }
 }
 
+void ProtecMarine_Comm3G::checkError(String message, String reponse) {
+    const char *searchTerm = "ERROR";
+
+    // Utilisation de strstr pour rechercher "ERROR"
+    if (strstr(reponse.c_str(), searchTerm) != NULL) {
+        Serial.println("Le mot 'ERROR' a été trouvé dans la chaîne.");
+        this->sendData(message, 1000, true); // Réessayez la commande
+    } else {
+        Serial.println("Le mot 'ERROR' n'est pas présent dans la chaîne.");
+    }
+}
+
+
 void ProtecMarine_Comm3G::disconnectMQTT(){
     sendData("AT+CMQTTDISC=0,120", 1000, true);
     sendData("AT+CMQTTREL=0", 1000, true);
@@ -169,49 +185,19 @@ unsigned long ProtecMarine_Comm3G::getSendInterval() const {
     return sendInterval;
 }
 
-void ProtecMarine_Comm3G::Gonflage(int RELAI1, int RELAI2, int RELAI3) {
-    int mesureBrute = 0;
-    float tensionP = 0;
-    float pression = 0;
-
-    _etat = "G";
-    digitalWrite(RELAI3, HIGH);//fermeture de l'electrovane
-    delay(300);
-    digitalWrite(RELAI1, HIGH);//activation de la pompe a air
-
-    while (pression < 2644){
-        if (millis() - lastSendTime >= getSendInterval()) {
-            Serial.println("debut du pub");
-            publish("data", getData(pressionPin, potPin));
-            lastSendTime = millis();
-        }
-        int mesureBrute = analogRead(pressionPin);
-        float tensionP = mesureBrute * (3.3 / 4095.0);
-        float pression = (tensionP * 2 + 4.42) * (1000.0 / (4.7 - 0.2));
+void ProtecMarine_Comm3G::verifTime(){
+    if (millis() - lastSendTime >= getSendInterval()) {
+      Serial.println("debut du pub");
+      publish("data", getData());
+      lastSendTime = millis();
     }
-
-    _etat = "V";
-    digitalWrite(RELAI1, LOW);//eteindre la pompe a air
-    delay(300);
-    digitalWrite(RELAI2, HIGH);//activation de la pompe de calle
-
-    while (tension < 2644){
-        if (millis() - lastSendTime >= getSendInterval()) {
-            Serial.println("debut du pub");
-            publish("data", getData(pressionPin, potPin));
-            lastSendTime = millis();
-        }
-        //mesure de la tension de la Pompe
-    }
-
-    digitalWrite(RELAI2, LOW);//eteindre la pompe de calle
-    _etat = "S";
-    
-    
 }
 
-void ProtecMarine_Comm3G::Degonflage(int RELAI3 = 21) {
+void ProtecMarine_Comm3G::Gonflage() {
 }
 
-void ProtecMarine_Comm3G::Arret(int RELAI1, int RELAI2, int RELAI3 = 21) {
+void ProtecMarine_Comm3G::Degonflage() {
+}
+
+void ProtecMarine_Comm3G::Arret() {
 }
