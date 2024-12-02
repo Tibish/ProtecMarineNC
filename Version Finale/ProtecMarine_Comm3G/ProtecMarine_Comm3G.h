@@ -7,7 +7,7 @@
 
 class ProtecMarine_Comm3G {
 public:
-    ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword);
+    ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword, int pressionPin, int potPin);
 
     String getDefaultMacAddress();
     String sendData(String command, const int timeout, boolean debug = false);
@@ -18,28 +18,36 @@ public:
     void subscribe(String topic);
     void publish(String topic, String payload);
 
-    String getData(int pressionPin, int potPin);
+    String getData();
 
     void handleMessage(String message);
     void checkIncomingMessages();
+    void checkError(String message, String reponse);
     void disconnectMQTT();
 
     void setSendInterval(unsigned long interval);
     unsigned long getSendInterval() const;
+    void verifTime();
 
-    void Gonflage(int RELAI1, int RELAI2, int RELAI3 = 21);
-    void Degonflage(int RELAI3 = 21);
-    void Arret(int RELAI1, int RELAI2, int RELAI3 = 21);
+    void Gonflage();
+    void Degonflage();
+    void Arret();
 
 private:
     HardwareSerial& _serial; // Référence au port série
     const char* _mqttUser;
     const char* _mqttPassword;
+
     String _receivedMessage;
     bool _isJsonPayload;
+
     unsigned long sendInterval;
-    static unsigned long lastSendTime;
+    unsigned long lastSendTime;
+
     String _etat;
+    int _potPin;
+    int _pressionPin;
+    int id_ordre;
 };
 
 #endif
