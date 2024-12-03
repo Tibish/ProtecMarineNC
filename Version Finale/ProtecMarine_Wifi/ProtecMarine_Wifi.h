@@ -36,7 +36,6 @@ private:
     float _tension;
 
     String GetData();
-    String RandomData();
 };
 
 #endif
