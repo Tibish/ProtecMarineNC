@@ -8,14 +8,7 @@ ProtecMarine_Wifi wifi("ProtecMarineNC", "12345678", 34, 35);
 #define DEBUG true
 
 HardwareSerial mySerial2(2);
-ProtecMarine_Comm3G comm3G(mySerial2, "user3", "User123456789.", 34, 35);
-
-const int RELAI1 = 42; //pompe a air
-const int RELAI2 = 1; // pompe de calle
-const int RELAI3 = 21; // electrovanne
-
-int potValue = 0;            // Valeur brute du potentiomètre
-float voltage = 0.0;         // Valeur de la tension calculée
+ProtecMarine_Comm3G comm3G(mySerial2, "7C-DF-A1-ED-5B-74", "[MHHf0572NFX4#E", 34, 35, 42, 1, 21);
 
 // Prototypes des fonctions
 float hpaToBar(float pressionHpa);
@@ -23,6 +16,8 @@ float hpaToBar(float pressionHpa);
 int currentMode = 1;
 const int swPin = 5;
 int sw = 0;
+
+static unsigned long lastSendTime = 0;
 
 void setup() {
     Serial.begin(115200);
