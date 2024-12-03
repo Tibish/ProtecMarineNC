@@ -7,7 +7,7 @@
 
 class ProtecMarine_Comm3G {
 public:
-    ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword, int pressionPin, int potPin);
+    ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword, int pressionPin, int potPin, int relaisA, int relaisC, int relaisE);
 
     String getDefaultMacAddress();
     String sendData(String command, const int timeout, boolean debug = false);
@@ -45,9 +45,15 @@ private:
     unsigned long lastSendTime;
 
     String _etat;
+    int id_ordre;
+
+    int _relaisA;
+    int _relaisC;
+    int _relaisE;
+
     int _potPin;
     int _pressionPin;
-    int id_ordre;
+    
 };
 
 #endif
