@@ -51,7 +51,7 @@ void ProtecMarine_Wifi::handleRequests() {
 }
 
 void ProtecMarine_Wifi::handleImage() {
-    File file = LittleFS.open("/image.jpg", "r");
+    File file = LittleFS.open("/logo-ProtecMarineNC3.png", "r");
     if (!file) {
         _server.send(404, "text/plain", "Image non trouvée");
         return;
@@ -79,7 +79,7 @@ void ProtecMarine_Wifi::handleRoot() {
       </style>
     </head>
     <body>
-      <img src="/image" alt="Image du système">
+      <img src="/logo-ProtecMarineNC3.png" alt="Logo">
       <h1>Protection de coque</h1>
       <div id="dataDisplay">
         <p>Tension : </p>
