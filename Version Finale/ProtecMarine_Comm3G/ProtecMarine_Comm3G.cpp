@@ -1,8 +1,8 @@
 #include "ProtecMarine_Comm3G.h"
 
-ProtecMarine_Comm3G::ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword, int pressionPin, int potPin)
+ProtecMarine_Comm3G::ProtecMarine_Comm3G(HardwareSerial& serial, const char* mqttUser, const char* mqttPassword, int pressionPin, int potPin,  int relaisA, int relaisC, int relaisE)
     : _serial(serial), _mqttUser(mqttUser), _mqttPassword(mqttPassword), _receivedMessage(""), _isJsonPayload(false), sendInterval(60000), id_ordre(),
-     _pressionPin(pressionPin), _potPin(potPin), lastSendTime(0), _etat("E") {}
+     _pressionPin(pressionPin), _potPin(potPin), lastSendTime(0), _etat("E"), _relaisA(relaisA), _relaisC(relaisC), _relaisE(relaisE) {}
 
 String ProtecMarine_Comm3G::getDefaultMacAddress() {
     String mac = "";
@@ -87,16 +87,18 @@ String ProtecMarine_Comm3G::getData() {
 
     int mesureBrute = analogRead(_pressionPin);
     float tensionP = mesureBrute * (3.3 / 4095.0);
-    float pression = (tensionP * 2 + 4.42) * (1000.0 / (4.7 - 0.2));
+    //float pression = (tensionP * 2 + 4.42) * (1000.0 / (4.7 - 0.2));
+    float pression = random(0, 1200);
 
     int potValue = analogRead(_potPin);
-    float tension = (potValue * 12.0) / 4095;
+    //float tension = (potValue * 12.0) / 4095;
+    float tension = random(0, 3.5);
 
     doc["mac_esp32"] = id;
     doc["id_ordre"] = id_ordre;
     doc["tension"] = tension;
     doc["pression"] = pression;
-    doc["etat"] = "E";
+    doc["etat"] = _etat;
 
     serializeJson(doc, Data);
     return Data;
@@ -115,6 +117,7 @@ void ProtecMarine_Comm3G::handleMessage(String message) {
 
     if (doc.containsKey("action")) {
         String actions = doc["action"];
+        id_ordre = doc["id_ordre"];
         if (actions == "G") {
             Serial.println("Action: Gonfler");
             setSendInterval(60000);
@@ -127,6 +130,9 @@ void ProtecMarine_Comm3G::handleMessage(String message) {
             Serial.println("Action: Arrêt d'urgence");
             setSendInterval(300000);
             Arret();
+        } else if (actions == "T") {
+            Serial.println("Action: envoie d'etat");
+            publish("data",getData());
         } else {
             Serial.println("Action inconnue reçue.");
         }
@@ -194,6 +200,34 @@ void ProtecMarine_Comm3G::verifTime(){
 }
 
 void ProtecMarine_Comm3G::Gonflage() {
+    float tension = 0;
+    digitalWrite(_relaisE, HIGH);
+    digitalWrite(_relaisA, HIGH);
+    _etat = "G";
+    publish("data", getData());
+    while (tension < 3.5) {
+        tension = tension + 0.5;
+        verifTime();
+        Serial.println(tension);
+        delay(500);
+    }
+    Serial.println("gonflage terminer");
+    digitalWrite(_relaisA, LOW);
+    _etat = "V";
+    publish("data", getData());
+    tension = 0;
+    digitalWrite(_relaisC, HIGH);
+    while (tension < 3.5) {
+        tension = tension + 0.5;
+        verifTime();
+        Serial.println(tension);
+        delay(500);
+    }
+    Serial.println("vidange terminer");
+    digitalWrite(_relaisC, LOW);
+    _etat = "S";
+    publish("data", getData());
+    id_ordre = 0;
 }
 
 void ProtecMarine_Comm3G::Degonflage() {
